@@ -1466,8 +1466,155 @@ try {
   const resumeDelay = resumed.nextCheckAt - Date.now();
   ok(resumeDelay <= 60000, '恢复后马上安排了检查（' + Math.round(resumeDelay / 1000) + ' 秒后）');
 
-  /* ---------------------------------------------------------- 14. 每天首次启动 */
-  log('\n[20] 重启浏览器，验证「每天首次启动」自动检查');
+  /* ---------------------------------------------------------- 14. 主题切换 */
+  log('\n[20] 浅色 / 深色 / 跟随系统');
+  eq((await storage()).settings.theme, 'system', '主题默认跟随系统');
+
+  const THEME_LIGHT_BG = '#eef2f8';
+  const THEME_DARK_BG = '#080b11';
+
+  await sendMsg({ type: 'save-settings', patch: { theme: 'light' } });
+  const lightUi = await waitFor('设置页切到浅色', async () => {
+    const r = await evaluate(cdp, control, `
+      (() => ({
+        theme: document.documentElement.dataset.theme || '',
+        bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+        seg: Array.from(document.querySelectorAll('#theme-seg [data-theme-set]'))
+          .map((b) => b.dataset.themeSet + ':' + b.dataset.on).join(',')
+      }))()
+    `);
+    return r.theme === 'light' ? r : null;
+  }, 8000);
+  eq(lightUi.bg, THEME_LIGHT_BG, '浅色主题的 --bg 变量生效');
+  ok(/light:true/.test(lightUi.seg), '设置页右上角「浅色」高亮: ' + lightUi.seg);
+  await screenshot(control, '16-options-light');
+
+  await evaluate(cdp, control, `(document.querySelector('#theme-seg [data-theme-set="dark"]').click(), true)`);
+  const darkUi = await waitFor('点击「深色」立即生效', async () => {
+    const r = await evaluate(cdp, control, `
+      (() => ({
+        theme: document.documentElement.dataset.theme || '',
+        bg: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
+      }))()
+    `);
+    return r.theme === 'dark' ? r : null;
+  }, 8000);
+  eq(darkUi.bg, THEME_DARK_BG, '深色主题的 --bg 变量生效');
+  eq((await storage()).settings.theme, 'dark', '「深色」写入设置');
+
+  await cdp.send('Emulation.setEmulatedMedia', {
+    media: 'screen',
+    features: [{ name: 'prefers-color-scheme', value: 'light' }]
+  }, control);
+  await evaluate(cdp, control, `(document.querySelector('#theme-seg [data-theme-set="system"]').click(), true)`);
+  const sysUi = await waitFor('跟随系统解析为浅色', async () => {
+    const r = await evaluate(cdp, control, `
+      (() => ({
+        theme: document.documentElement.dataset.theme || '',
+        on: (document.querySelector('#theme-seg [data-theme-set="system"]') || { dataset: {} }).dataset.on || ''
+      }))()
+    `);
+    return r.theme === 'light' ? r : null;
+  }, 8000);
+  eq(sysUi.on, 'true', '「跟随系统」按钮高亮');
+  eq((await storage()).settings.theme, 'system', '「跟随系统」写入设置');
+
+  await sendMsg({ type: 'save-settings', patch: { theme: 'light' } });
+  const feedLight = await waitFor('悬浮窗切到浅色', async () => {
+    const r = await evaluate(cdp, feed.session, `
+      (() => {
+        const host = document.getElementById('pr-panel-host');
+        if (!host || !host.shadowRoot) return null;
+        const sr = host.shadowRoot;
+        const t = sr.querySelector('.t');
+        return { theme: host.dataset.theme || '', tColor: t ? getComputedStyle(t).color : '' };
+      })()
+    `);
+    return r && r.theme === 'light' ? r : null;
+  }, 8000);
+  eq(feedLight.tColor, 'rgb(27, 36, 54)', '浅色悬浮窗用深色文字');
+  await screenshot(feed.session, '17-panel-light');
+
+  await evaluate(cdp, feed.session, `
+    (() => {
+      const sr = document.getElementById('pr-panel-host').shadowRoot;
+      sr.querySelector('[data-act="theme"]').click();
+      return true;
+    })()
+  `);
+  const feedDark = await waitFor('悬浮窗头部按钮切主题', async () => {
+    const r = await evaluate(cdp, feed.session, `
+      (() => {
+        const host = document.getElementById('pr-panel-host');
+        if (!host || !host.shadowRoot) return null;
+        const t = host.shadowRoot.querySelector('.t');
+        return { theme: host.dataset.theme || '', tColor: t ? getComputedStyle(t).color : '' };
+      })()
+    `);
+    return r && r.theme === 'dark' ? r : null;
+  }, 8000);
+  eq((await storage()).settings.theme, 'dark', '悬浮窗按钮把主题写回设置');
+  eq(feedDark.tColor, 'rgb(238, 242, 250)', '深色悬浮窗用浅色文字');
+
+  await cdp.send('Emulation.setEmulatedMedia', {
+    media: 'screen',
+    features: [{ name: 'prefers-color-scheme', value: 'light' }]
+  }, feed.session);
+  await sendMsg({ type: 'save-settings', patch: { theme: 'system' } });
+  await startPicker(feedUrl);
+  const pickerTheme = await waitFor('框选卡片跟随主题', async () => {
+    const r = await evaluate(cdp, feed.session, `
+      (() => {
+        const host = document.getElementById('pr-pick-host');
+        if (!host || !host.shadowRoot) return null;
+        const card = host.shadowRoot.querySelector('#pr-card');
+        return { theme: host.dataset.theme || '', color: card ? getComputedStyle(card).color : '' };
+      })()
+    `);
+    return r && r.theme === 'light' ? r : null;
+  }, 8000);
+  eq(pickerTheme.color, 'rgb(27, 36, 54)', '浅色框选卡片用深色文字');
+  await evaluate(cdp, feed.session, `
+    (() => {
+      const sr = document.getElementById('pr-pick-host').shadowRoot;
+      sr.querySelector('[data-pick="cancel"]').click();
+      return true;
+    })()
+  `);
+
+  await cdp.send('Emulation.setEmulatedMedia', {
+    media: 'screen',
+    features: [{ name: 'prefers-color-scheme', value: 'light' }]
+  }, popup.session);
+  await cdp.send('Page.navigate', { url: popupUrl }, popup.session);
+  await waitFor('弹窗重新载入', () => evaluate(cdp, popup.session, 'document.readyState === "complete"'));
+  const popupTheme = await waitFor('弹窗渲染主题按钮', async () => {
+    const r = await evaluate(cdp, popup.session, `
+      (() => {
+        const btn = document.getElementById('theme');
+        return { has: !!btn, theme: document.documentElement.dataset.theme || '', title: btn ? btn.title : '' };
+      })()
+    `);
+    return r.has && r.theme ? r : null;
+  }, 10000);
+  eq(popupTheme.theme, 'light', '弹窗跟随系统解析为浅色');
+  ok(/主题/.test(popupTheme.title), '弹窗主题按钮带提示: ' + popupTheme.title);
+  await evaluate(cdp, popup.session, `(document.getElementById('theme').click(), true)`);
+  const popupCycled = await waitFor('弹窗点击切换主题', async () => {
+    const r = await evaluate(cdp, popup.session, `
+      (() => ({ theme: document.documentElement.dataset.theme || '', title: document.getElementById('theme').title }))()
+    `);
+    return /浅色/.test(r.title) && r.theme === 'light' ? r : null;
+  }, 8000);
+  ok(/浅色/.test(popupCycled.title), '弹窗按钮提示切到浅色: ' + popupCycled.title);
+  eq((await storage()).settings.theme, 'light', '弹窗切换写入设置');
+  await screenshot(popup.session, '18-popup-theme');
+
+  await sendMsg({ type: 'save-settings', patch: { theme: 'system' } });
+  await waitFor('主题恢复默认', async () => ((await storage()).settings.theme === 'system' ? true : null), 6000);
+
+  /* ---------------------------------------------------------- 15. 每天首次启动 */
+  log('\n[21] 重启浏览器，验证「每天首次启动」自动检查');
   const restartAt = Date.now();
   // Pretend the last start-up check was days ago.
   await swEval(`
@@ -1527,7 +1674,7 @@ try {
   ok(startup.subs.every((s) => !s.err || !s.err.length), '启动检查没有报错');
   eq((await swEval2('const a = await chrome.alarms.getAll(); return a.map((x) => x.name).join(",");')), 'pr:tick', '重启后重新安排了检查闹钟');
 
-  log('\n[21] 清理');
+  log('\n[22] 清理');
 } catch (e) {
   failures.push(e && e.stack || String(e));
   log('\n致命错误:', e && e.message || e);

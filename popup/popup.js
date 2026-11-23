@@ -60,7 +60,54 @@
     return state.subs.filter(function (s) { return pageKey(s.url) === key; });
   }
 
+  // ---- 主题 ----
+  var THEME_LABEL = { system: '跟随系统', light: '浅色', dark: '深色' };
+  var THEME_CYCLE = { system: 'light', light: 'dark', dark: 'system' };
+  var THEME_ICONS = {
+    system: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="8.3"/><path d="M12 3.7a8.3 8.3 0 0 1 0 16.6Z" fill="currentColor" stroke="none"/></svg>',
+    light: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.6v2.2M12 19.2v2.2M4.4 12H2.2M21.8 12h-2.2M6.2 6.2 4.6 4.6M19.4 19.4l-1.6-1.6M17.8 6.2l1.6-1.6M4.6 19.4l1.6-1.6"/></svg>',
+    dark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.3A8.6 8.6 0 0 1 9.7 3.5a8.6 8.6 0 1 0 10.8 10.8Z"/></svg>'
+  };
+
+  function themeMode() {
+    var t = state && state.settings && state.settings.theme;
+    return t === 'light' || t === 'dark' ? t : 'system';
+  }
+
+  function mediaLight() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches); } catch (e) { return false; }
+  }
+
+  function applyTheme() {
+    var mode = themeMode();
+    var resolved = mode === 'system' ? (mediaLight() ? 'light' : 'dark') : mode;
+    document.documentElement.dataset.theme = resolved;
+    document.documentElement.style.colorScheme = resolved;
+    var btn = $('#theme');
+    if (btn) {
+      btn.innerHTML = THEME_ICONS[mode] || THEME_ICONS.system;
+      btn.title = '主题：' + THEME_LABEL[mode] + '（点击切换）';
+    }
+  }
+
+  async function cycleTheme() {
+    var next = THEME_CYCLE[themeMode()] || 'system';
+    if (state && state.settings) state.settings.theme = next;
+    applyTheme();
+    await savePatch({ theme: next }, '主题：' + THEME_LABEL[next]);
+  }
+
+  function watchSystemTheme() {
+    try {
+      var mq = window.matchMedia('(prefers-color-scheme: light)');
+      var onChange = function () { if (themeMode() === 'system') applyTheme(); };
+      if (mq.addEventListener) mq.addEventListener('change', onChange);
+      else if (mq.addListener) mq.addListener(onChange);
+    } catch (e) {}
+  }
+
   function render() {
+    applyTheme();
     var subs = state.subs || [];
     var unread = subs.filter(function (s) { return s.hasNew; }).length;
 
@@ -395,6 +442,7 @@
   }
 
   function bind() {
+    $('#theme').addEventListener('click', cycleTheme);
     $('#pv-back').addEventListener('click', closePreview);
     $('#pv-check').addEventListener('click', checkPreview);
     document.addEventListener('keydown', function (e) {
@@ -436,6 +484,7 @@
     }
     state = res;
     bind();
+    watchSystemTheme();
     render();
   }
 

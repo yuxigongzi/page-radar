@@ -24,6 +24,7 @@ var DEFAULT_SETTINGS = {
   panelHiddenHosts: [],
   maxItems: 40,
   carryCategory: false,
+  theme: 'system',
   categories: []
 };
 
@@ -98,6 +99,7 @@ function sanitizeImportedSettings(raw) {
     if (typeof raw[k] === 'boolean') out[k] = raw[k];
   });
   if (raw.panelSide === 'left' || raw.panelSide === 'right') out.panelSide = raw.panelSide;
+  if (raw.theme === 'light' || raw.theme === 'dark' || raw.theme === 'system') out.theme = raw.theme;
   if (raw.panelOpacity != null) {
     out.panelOpacity = clamp(Number(raw.panelOpacity) || DEFAULT_SETTINGS.panelOpacity, 0.3, 1);
   }
@@ -854,6 +856,7 @@ async function handleSaveSettings(patch) {
   if (patch.panelEnabled != null) next.panelEnabled = !!patch.panelEnabled;
   if (patch.carryCategory != null) next.carryCategory = !!patch.carryCategory;
   if (patch.panelSide === 'left' || patch.panelSide === 'right') next.panelSide = patch.panelSide;
+  if (patch.theme === 'light' || patch.theme === 'dark' || patch.theme === 'system') next.theme = patch.theme;
   if (patch.panelOpacity != null) next.panelOpacity = clamp(patch.panelOpacity, 0.3, 1);
   if (Array.isArray(patch.panelHiddenHosts)) next.panelHiddenHosts = patch.panelHiddenHosts.slice(0, 500);
   if (patch.maxItems != null) next.maxItems = clamp(patch.maxItems, 5, 200);

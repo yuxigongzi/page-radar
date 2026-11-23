@@ -76,7 +76,8 @@ settings = {
   panelHiddenHosts: [],     // 手动关掉悬浮窗的站点
   maxItems: 40,
   categories: [{ id, name, color }],   // 最多 20 个
-  carryCategory: false      // 新订阅沿用上一个订阅的分类
+  carryCategory: false,     // 新订阅沿用上一个订阅的分类
+  theme: 'system'           // 'system' | 'light' | 'dark'
 }
 
 subs = [{                   // 数组，按 createdAt 升序
@@ -116,7 +117,7 @@ meta = { lastStartupDay: 'YYYY-MM-DD', lastStartupCheckAt, lastTickAt }
 | `create-sub` | `{ url, name, pageTitle, selector, candidates, tag, anchorText, categoryId, keywords, keywordMode, note, intervalHours, snapshot }` | `{ id, created, sub, settings }` |
 | `remove-sub` | `{ id }` | `{ removed }` |
 | `update-sub` | `{ id, name?, url?, enabled?, intervalHours?, categoryId?, keywords?, keywordMode?, note? }` | `{ sub }` |
-| `save-settings` | settings 的任意子集 | `{ settings }` |
+| `save-settings` | settings 的任意子集（含 `theme`） | `{ settings }` |
 | `add-category` | `{ name }` | `{ category, settings }`；名称空 / 重名 / 超过 20 个时 `{ ok:false, error }` |
 | `mark-seen` | `{ ids: [] }` | `{ changed }` |
 | `site-panel` | `{ host, hidden }` | `{ panelHiddenHosts }` |
@@ -221,6 +222,8 @@ var notify = keywordMode ? hitNow : changed;   // 关键词模式下普通更新
 - 页面侧只做展示；所有状态改动都发回 background，改完靠 `storage.onChanged` 重渲染。
 - 框选卡片里的分类下拉末项是 `+ 新建分类…`（value `__new__`），选中后展开 `#pr-newcat` 输入行，提交时发 `add-category` 而不是自己拼 `save-settings`，避免和设置页并发写覆盖；创建成功后用返回的 `settings` 重填下拉并选中新分类。
 - 悬浮窗每行有铅笔按钮（`data-row-note`）：就地插入 `.noteedit` 输入框，回车/保存发 `update-sub { note }`，成功后只更新该行的 `.note` 节点，不整块重渲染，避免闪烁。
+- 主题状态机：`settings.theme` 是 `system|light|dark`，解析后的实际外观写到宿主元素的 `data-theme="light|dark"`（悬浮窗 / 框选宿主），扩展页面写到 `document.documentElement.dataset.theme`。三处 CSS 都在末尾追加了一组 `:host([data-theme="light"])` / `:root[data-theme="light"]` 覆盖块，深色样式保持不动。`system` 模式用 `matchMedia('(prefers-color-scheme: light)')` 解析，并监听其 `change` 事件实时跟随。
+- 主题的三个入口都只是「写设置」：设置页右上角三段式（`#theme-seg [data-theme-set]`）、弹窗图标按钮（`#theme`）、悬浮窗头部图标按钮（`data-act="theme"`，循环 system→light→dark）。写入后由 `storage.onChanged` → `loadData()`/`reload()` → `applyTheme()` 统一重绘，所以三个界面不会不同步。
 
 ---
 
@@ -260,7 +263,7 @@ node tools/check_ids.mjs     # JS 里的 $('#id') 与 HTML 对账
 - 同一天内的「启动检查」需要先把 `meta.lastStartupDay` 改成过去的日期，否则会被日锁挡住。
 - 关键词断言要用全新词：fixture 的 `state.kw` 会跨阶段累积；`matchKeywords` 的 `all` 模式在缺词时返回 `[]`。
 
-测试阶段（`e2e.mjs` 里从 `[1]` 到 `[21]`）：默认设置 → 框选 → 订阅与基线 → 悬浮窗收起/展开 → 手动检查 → 更新与通知 → 噪声 → SPA → CSP → 弹窗/设置页渲染 → 改间隔重排 → 预览与分类 → 标为已读 → 刷新与闪烁 → 关键词 → 备份导入导出 → 筛选/多选/批量 → 框选卡片新建分类与悬浮窗备注 → 勾选暂停 → 重启后当天首次检查 → 清理。截图写到 `test/out/`。
+测试阶段（`e2e.mjs` 里从 `[1]` 到 `[22]`）：默认设置 → 框选 → 订阅与基线 → 悬浮窗收起/展开 → 手动检查 → 更新与通知 → 噪声 → SPA → CSP → 弹窗/设置页渲染 → 改间隔重排 → 预览与分类 → 标为已读 → 刷新与闪烁 → 关键词 → 备份导入导出 → 筛选/多选/批量 → 框选卡片新建分类与悬浮窗备注 → 勾选暂停 → 主题（含 prefers-color-scheme 模拟）→ 重启后当天首次检查 → 清理。截图写到 `test/out/`。
 
 ---
 

@@ -982,11 +982,52 @@
       if (!ids[id]) delete pending[id];
       else if (pending[id] === ((res.subs.find(function (s) { return s.id === id; }) || {}).enabled !== false)) delete pending[id];
     });
+    applyTheme();
     renderCats();
     renderSubs();
     renderSettings();
     updateSaveUi();
     updateStorageNote();
+  }
+
+  // ---- 主题 ----
+
+  function themeMode() {
+    var t = state && state.settings && state.settings.theme;
+    return t === 'light' || t === 'dark' ? t : 'system';
+  }
+
+  function mediaLight() {
+    try { return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches); } catch (e) { return false; }
+  }
+
+  function applyTheme() {
+    var mode = themeMode();
+    var resolved = mode === 'system' ? (mediaLight() ? 'light' : 'dark') : mode;
+    document.documentElement.dataset.theme = resolved;
+    document.documentElement.style.colorScheme = resolved;
+    var seg = document.getElementById('theme-seg');
+    if (seg) {
+      seg.querySelectorAll('[data-theme-set]').forEach(function (b) {
+        b.dataset.on = String(b.getAttribute('data-theme-set') === mode);
+      });
+    }
+  }
+
+  async function setTheme(mode) {
+    if (mode !== 'light' && mode !== 'dark' && mode !== 'system') return;
+    applyTheme();
+    var res = await patch({ theme: mode });
+    if (res.ok) applyTheme();
+  }
+
+  function watchSystemTheme() {
+    try {
+      var mq = window.matchMedia('(prefers-color-scheme: light)');
+      var onChange = function () { if (themeMode() === 'system') applyTheme(); };
+      if (mq.addEventListener) mq.addEventListener('change', onChange);
+      else if (mq.addListener) mq.addListener(onChange);
+    } catch (e) {}
   }
 
   function updateSaveUi() {
@@ -1030,6 +1071,15 @@
       renderCats();
       renderSubs();
     });
+
+    var seg = $('#theme-seg');
+    if (seg) {
+      seg.addEventListener('click', function (e) {
+        var btn = e.target.closest ? e.target.closest('[data-theme-set]') : null;
+        if (!btn) return;
+        setTheme(btn.getAttribute('data-theme-set'));
+      });
+    }
 
     $('#cat-add').addEventListener('click', async function () {
       var nameEl = $('#cat-name');
@@ -1248,6 +1298,8 @@
 
   async function init() {
     bind();
+    applyTheme();
+    watchSystemTheme();
     await reload();
   }
 

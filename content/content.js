@@ -18,7 +18,8 @@
     panelSide: 'right',
     panelOpacity: 0.92,
     panelHiddenHosts: [],
-    maxItems: 40
+    maxItems: 40,
+    theme: 'system'
   };
 
   var state = {
@@ -153,7 +154,8 @@
       shadow: shadow,
       count: shadow.querySelector('#pr-count'),
       body: shadow.querySelector('#pr-body'),
-      pin: shadow.querySelector('[data-act="pin"]')
+      pin: shadow.querySelector('[data-act="pin"]'),
+      theme: shadow.querySelector('[data-act="theme"]')
     };
 
     shadow.addEventListener('click', onPanelClick);
@@ -169,6 +171,7 @@
 
     (document.documentElement || document.body).appendChild(host);
     panelHost = host;
+    applyTheme();
   }
 
   function destroyPanel() {
@@ -182,6 +185,51 @@
     if (!panelHost) return;
     panelHost.dataset.open = (state.hover || state.pinned || state.pvOpen) ? 'true' : 'false';
     if (panelRefs && panelRefs.pin) panelRefs.pin.classList.toggle('active', state.pinned);
+  }
+
+  // ---------------------------------------------------------------- theme
+
+  var THEME_LABEL = { system: '跟随系统', light: '浅色', dark: '深色' };
+  var THEME_CYCLE = { system: 'light', light: 'dark', dark: 'system' };
+
+  function themeOf() {
+    var t = state.settings && state.settings.theme;
+    return t === 'light' || t === 'dark' ? t : 'system';
+  }
+
+  function prefersLight() {
+    try {
+      return !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function resolvedTheme() {
+    var t = themeOf();
+    if (t === 'light' || t === 'dark') return t;
+    return prefersLight() ? 'light' : 'dark';
+  }
+
+  function applyTheme() {
+    var mode = themeOf();
+    var resolved = resolvedTheme();
+    if (panelHost) {
+      panelHost.dataset.theme = resolved;
+      if (panelRefs && panelRefs.theme) {
+        panelRefs.theme.innerHTML = mode === 'light' ? UI.ICONS.sun : mode === 'dark' ? UI.ICONS.moon : UI.ICONS.auto;
+        panelRefs.theme.title = '主题：' + THEME_LABEL[mode] + '（点击切换）';
+      }
+    }
+    if (picker && picker.host) picker.host.dataset.theme = resolved;
+  }
+
+  function cycleTheme() {
+    var next = THEME_CYCLE[themeOf()] || 'system';
+    state.settings = Object.assign({}, state.settings || {}, { theme: next });
+    applyTheme();
+    send({ type: 'save-settings', patch: { theme: next } });
+    toast('主题：' + THEME_LABEL[next] + (next === 'system' ? '（' + (prefersLight() ? '浅色' : '深色') + '）' : ''));
   }
 
   function onPanelClick(e) {
@@ -206,7 +254,9 @@
     var actBtn = e.target.closest ? e.target.closest('[data-act]') : null;
     if (actBtn) {
       var act = actBtn.getAttribute('data-act');
-      if (act === 'pin') {
+      if (act === 'theme') {
+        cycleTheme();
+      } else if (act === 'pin') {
         state.pinned = !state.pinned;
         syncOpen();
       } else if (act === 'close') {
@@ -280,6 +330,7 @@
     panelHost.style.setProperty('--pr-opacity', String(clamp(s.panelOpacity == null ? 0.92 : s.panelOpacity, 0.3, 1)));
     panelRefs.count.textContent = String(subs.length);
     renderRows(subs);
+    applyTheme();
     syncOpen();
   }
 
@@ -744,6 +795,7 @@
     };
 
     document.documentElement.appendChild(host);
+    host.dataset.theme = resolvedTheme();
     document.documentElement.style.cursor = 'crosshair';
 
     shadow.addEventListener('click', onPickerClick);
@@ -1144,6 +1196,14 @@
       return;
     }
   });
+
+  if (window.matchMedia) {
+    try {
+      var lightMq = window.matchMedia('(prefers-color-scheme: light)');
+      if (lightMq.addEventListener) lightMq.addEventListener('change', applyTheme);
+      else if (lightMq.addListener) lightMq.addListener(applyTheme);
+    } catch (e) {}
+  }
 
   if (chrome.storage && chrome.storage.onChanged) {
     chrome.storage.onChanged.addListener(function (changes, area) {
