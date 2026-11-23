@@ -42,6 +42,7 @@ def collect():
 
 
 def build_zip(files):
+    os.makedirs(DIST, exist_ok=True)
     if os.path.exists(ZIP_OUT):
         os.remove(ZIP_OUT)
     with zipfile.ZipFile(ZIP_OUT, "w", zipfile.ZIP_DEFLATED) as zf:
