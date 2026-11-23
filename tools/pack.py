@@ -8,6 +8,7 @@ import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DIST = os.path.join(ROOT, "dist")
+ZIP_ONLY = "--zip-only" in sys.argv
 VERSION = json.load(open(os.path.join(ROOT, "manifest.json"), encoding="utf-8"))["version"]
 ZIP_OUT = os.path.join(DIST, "page-radar-%s.zip" % VERSION)
 CRX_OUT = os.path.join(DIST, "page-radar-%s.crx" % VERSION)
@@ -100,4 +101,5 @@ def build_crx(files):
 
 files = collect()
 build_zip(files)
-build_crx(files)
+if not ZIP_ONLY:
+    build_crx(files)

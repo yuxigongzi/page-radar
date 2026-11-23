@@ -1,0 +1,42 @@
+name: Release
+
+# 打 tag（v1.5.3 这种）就自动：跑单元测试 → 打 zip → 建 Release 并把 zip 挂上去。
+# 这样以后发版只需要改版本号、提交、打 tag、推送，不用再手动传附件。
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 校验 tag 与 manifest 版本一致
+        run: |
+          VER=$(python3 -c "import json;print(json.load(open('manifest.json'))['version'])")
+          echo "version=$VER" >> "$GITHUB_ENV"
+          if [ "v$VER" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} 与 manifest.json 的版本 v$VER 不一致"
+            exit 1
+          fi
+
+      - name: 单元测试
+        run: node test/text.test.mjs
+
+      - name: 打 zip（CI 不产 crx，需要签名私钥，只在本地打）
+        run: python3 tools/pack.py --zip-only
+
+      - name: 创建 Release 并附加 zip
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/page-radar-*.zip
+          generate_release_notes: true
+          name: v${{ env.version }}

@@ -273,7 +273,28 @@ node tools/verify_crx.mjs dist/page-radar-<version>.crx
 - CRX3 结构：`Cr24` + version 3 + header 长度 + header（`sha256_with_rsa` 证明 + 签名）+ zip。
 - 也可以让 Edge 打包：`msedge.exe --pack-extension=<dir> --pack-extension-key=<pem>`，产物是 CRX3。
 
-改完代码后记得同步三处版本号：`manifest.json`、`options/options.html` 页脚、`README.md` 里引用的 crx 文件名。
+改完代码后记得同步三处版本号：`manifest.json`、`options/options.html` 页脚、`README.md` 里引用的 crx 文件名。`tools/bump.mjs` 会一次改完这三处：
+
+```bash
+node tools/bump.mjs 1.5.4            # 只改版本号
+node tools/bump.mjs 1.5.4 --check    # 预览会改哪些文件，不落盘
+node tools/bump.mjs 1.5.4 --pack     # 改完直接打包
+```
+
+### 发布新版本
+
+日常发版四步：
+
+```bash
+node tools/bump.mjs 1.5.4 --pack        # 版本号 + zip/crx
+node test/e2e.mjs                       # 全量回归（约 4 分钟）
+git add -A && git commit -m "chore: v1.5.4"
+git tag v1.5.4 && git push origin main --tags
+```
+
+推 tag 后 `.github/workflows/release.yml` 会自动：校验 tag 与 manifest 版本一致 → 跑 `test/text.test.mjs` → `python3 tools/pack.py --zip-only` → 建 Release（自动生成 release notes）并把 zip 挂成附件。**不需要再手动上传 zip**；想调整文案就在 Release 页面点编辑。
+
+CI 不产 crx：签名需要 `dist/page-radar-key.pem`，那把钥匙只留在本地。要发 crx 就本地 `python tools/pack.py` 之后手动拖到 Release 附件里（可选，Chrome 正式版本来也拦非商店 crx）。
 
 ---
 
