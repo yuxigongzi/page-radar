@@ -1,0 +1,20 @@
+# 打包产物：建议用 GitHub Releases 发布，不进版本库
+dist/*.zip
+dist/*.crx
+
+# 签名私钥：绝对不能提交。泄露后任何人都能签发同 ID 的扩展、冒充你的更新
+dist/page-radar-key.pem
+*.pem
+
+# 测试截图（README 用的是 docs/screenshots 里的精简版）
+test/out/
+tools/__pycache__/
+__pycache__/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+node_modules/
+*.log

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>页面更新雷达 · 设置</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <img src="../icons/icon128.png" alt="" class="hero-icon">
+      <div class="hero-text">
+        <h1>页面更新雷达</h1>
+        <p>框选网页板块，自动盯住它的变化。所有数据只保存在这台电脑上。</p>
+      </div>
+      <div class="hero-stat">
+        <b id="stat-subs">0</b>
+        <span>个订阅</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="card-head">
+          <h2>订阅列表</h2>
+          <div class="card-tools">
+            <span id="save-hint" class="muted">勾选表示订阅，改完点保存</span>
+            <button id="sel-toggle" class="btn ghost">多选</button>
+            <button id="save-subs" class="btn primary" disabled>保存更改</button>
+            <button id="check-all" class="btn ghost">全部检查</button>
+          </div>
+        </div>
+        <div class="filter-row">
+          <div id="cat-filter" class="cat-filter"></div>
+          <div class="filter-selects">
+            <select id="filter-kw" title="按关键词筛选"></select>
+            <select id="filter-status" title="按状态筛选">
+              <option value="all">全部状态</option>
+              <option value="on">启用中</option>
+              <option value="off">已暂停</option>
+              <option value="new">有更新</option>
+              <option value="err">检查失败</option>
+            </select>
+          </div>
+        </div>
+        <div id="batch-bar" class="batch-bar" hidden>
+          <span id="batch-count" class="muted">已选 0 个</span>
+          <button id="sel-all" class="btn mini ghost">全选筛选结果</button>
+          <button id="sel-none" class="btn mini ghost">清空选择</button>
+          <button id="batch-kw" class="btn mini">批量关键词</button>
+          <button id="batch-cat" class="btn mini ghost">批量分类</button>
+          <button id="export-selected" class="btn mini ghost">导出所选</button>
+        </div>
+        <div id="sub-list" class="sub-list"></div>
+        <div id="sub-empty" class="empty">
+          还没有订阅。打开一个网页，点击工具栏里的雷达图标，选择「框选本页板块」。
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>分类</h2>
+          <div class="card-tools"><span id="cat-count" class="muted">0 个分类</span></div>
+        </div>
+        <div id="cat-list" class="cat-list"></div>
+        <div class="cat-add">
+          <input type="color" id="cat-color" class="color-input" value="#5ee0ff" title="分类颜色" aria-label="分类颜色">
+          <input type="text" id="cat-name" class="cat-name" maxlength="20" placeholder="新分类名称，例如 科技 / 招聘 / 论文">
+          <button id="cat-add" class="btn">添加分类</button>
+        </div>
+        <p class="field-hint">分类只用来整理订阅：可以按分类筛选订阅列表，也可以在框选板块时直接选分类。</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>检查节奏</h2></div>
+        <div class="grid">
+          <label class="field">
+            <span class="field-label">固定间隔</span>
+            <select id="intervalHours">
+              <option value="1">每 1 小时</option>
+              <option value="3">每 3 小时</option>
+              <option value="6">每 6 小时</option>
+              <option value="12">每 12 小时</option>
+              <option value="24">每 24 小时</option>
+              <option value="48">每 2 天</option>
+              <option value="168">每 7 天</option>
+            </select>
+            <span class="field-hint">所有未单独设置的订阅都按这个间隔检查。</span>
+          </label>
+
+          <label class="field switch-field">
+            <span class="field-label">每天首次打开浏览器时检查一次</span>
+            <input type="checkbox" id="startupCheck" class="switch">
+            <span class="field-hint">浏览器启动后立刻把全部订阅检查一遍，每天只做一次。</span>
+          </label>
+
+          <label class="field switch-field">
+            <span class="field-label">有更新时发系统通知</span>
+            <input type="checkbox" id="notify" class="switch">
+            <span class="field-hint">点击通知会打开对应网页并高亮板块。</span>
+          </label>
+
+          <label class="field switch-field">
+            <span class="field-label">忽略纯数字与相对时间的变化</span>
+            <input type="checkbox" id="onlyChanged" class="switch">
+            <span class="field-hint">比如浏览量、日期数字、“3 分钟前”这类变化不算更新，避免误报。</span>
+          </label>
+
+          <label class="field switch-field span2">
+            <span class="field-label">新订阅沿用上一个订阅的分类</span>
+            <input type="checkbox" id="carryCategory" class="switch">
+            <span class="field-hint">打开后，框选新板块时默认选中你最近创建的那条订阅的分类；关闭则默认「未分类」。</span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>页面边缘悬浮窗</h2></div>
+        <div class="grid">
+          <label class="field switch-field">
+            <span class="field-label">显示悬浮窗</span>
+            <input type="checkbox" id="panelEnabled" class="switch">
+            <span class="field-hint">只在你订阅过的页面上出现；平时自动缩到屏幕边缘，只露一半。</span>
+          </label>
+
+          <label class="field">
+            <span class="field-label">贴边位置</span>
+            <select id="panelSide">
+              <option value="right">右侧</option>
+              <option value="left">左侧</option>
+            </select>
+            <span class="field-hint">鼠标移上去会自动展开。</span>
+          </label>
+
+          <label class="field">
+            <span class="field-label">透明度 <b id="opacityValue">92%</b></span>
+            <input type="range" id="panelOpacity" min="40" max="100" step="2">
+            <span class="field-hint">调低会更透，不挡页面内容。</span>
+          </label>
+        </div>
+        <div class="sub-block">
+          <div class="sub-block-head">
+            <h3>已手动关闭悬浮窗的网站</h3>
+            <span class="muted">在悬浮窗上点 ✕ 会加到这里的</span>
+          </div>
+          <div id="hidden-hosts" class="chips"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>备份与恢复</h2></div>
+        <div class="tools">
+          <button id="export-all" class="btn">导出全部备份</button>
+          <button id="export-filtered" class="btn ghost" title="只导出当前筛选出来的订阅">导出筛选结果</button>
+          <button id="export-settings" class="btn ghost">仅导出设置</button>
+          <button id="import" class="btn ghost">导入备份…</button>
+          <button id="test-notify" class="btn ghost">测试通知</button>
+          <button id="reset" class="btn ghost danger">恢复默认设置</button>
+          <button id="clear-subs" class="btn ghost danger">清空全部订阅</button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+        </div>
+        <p class="fineprint">
+          「导出全部备份」包含偏好设置、分类和全部订阅（不含抓取到的快照）；「仅导出设置」只有偏好和分类。
+          导入时可以选择合并或覆盖，数据始终只保存在这台电脑上。
+        </p>
+        <p class="fineprint">
+          检查方式：后台直接抓取网页 HTML 解析；遇到需要 JavaScript 才渲染的页面，会短暂打开一个后台标签页渲染后再关闭。
+          抓取失败会自动退避重试，连续失败会显示在订阅列表里。
+        </p>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <span>页面更新雷达 v1.5.3</span>
+      <span id="storage-note"></span>
+    </footer>
+  </div>
+
+  <div id="preview" class="modal" hidden>
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="pv-title">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3 id="pv-title">预览</h3>
+          <div id="pv-meta" class="modal-meta"></div>
+        </div>
+        <button id="pv-x" class="btn mini" aria-label="关闭预览">关闭</button>
+      </div>
+      <div id="pv-body" class="modal-body"></div>
+      <div class="modal-foot">
+        <a id="pv-open" class="btn ghost" target="_blank" rel="noreferrer">打开网页</a>
+        <button id="pv-check" class="btn ghost">立即检查</button>
+        <button id="pv-seen" class="btn ghost">标记已读</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="kw-modal" class="modal" hidden>
+    <div class="modal-card kw-card" role="dialog" aria-modal="true" aria-labelledby="kw-title">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3 id="kw-title">关键词提醒</h3>
+          <div id="kw-sub" class="modal-meta"></div>
+        </div>
+        <button id="kw-x" class="btn mini" aria-label="关闭关键词设置">关闭</button>
+      </div>
+      <div class="modal-body">
+        <p class="kw-hint">设置关键词后，这个板块只在关键词<b>新出现</b>时提醒；普通内容更新不再发通知，角标也只记关键词命中。</p>
+        <div class="kw-add">
+          <input id="kw-input" class="kw-input" maxlength="24" placeholder="输入关键词后回车，例如 招聘 / 报名">
+          <button id="kw-add" class="btn mini">添加</button>
+        </div>
+        <div id="kw-list" class="kw-list"></div>
+        <div class="kw-mode" role="radiogroup" aria-label="关键词匹配方式">
+          <label><input type="radio" name="kw-mode" value="any" checked> 包含任意一个关键词就提醒</label>
+          <label><input type="radio" name="kw-mode" value="all"> 全部关键词同时出现才提醒</label>
+        </div>
+        <p class="kw-hint muted">不区分大小写，最多 12 个；匹配整段板块文本和条目标题。</p>
+      </div>
+      <div class="modal-foot">
+        <button id="kw-clear" class="btn ghost danger">清空并恢复普通提醒</button>
+        <button id="kw-save" class="btn primary">保存关键词</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bcat-modal" class="modal" hidden>
+    <div class="modal-card bcat-card" role="dialog" aria-modal="true" aria-labelledby="bcat-title">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3 id="bcat-title">批量设置分类</h3>
+          <div id="bcat-meta" class="modal-meta"></div>
+        </div>
+        <button id="bcat-x" class="btn mini" aria-label="关闭批量分类">关闭</button>
+      </div>
+      <div class="modal-body">
+        <label class="field">
+          <span class="field-label">分类</span>
+          <select id="bcat-select"></select>
+          <span class="field-hint">会把选中的订阅一起移到这里选中的分类。</span>
+        </label>
+      </div>
+      <div class="modal-foot">
+        <button id="bcat-cancel" class="btn ghost">取消</button>
+        <button id="bcat-apply" class="btn primary">应用到所选</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="im-modal" class="modal" hidden>
+    <div class="modal-card im-card" role="dialog" aria-modal="true" aria-labelledby="im-title">
+      <div class="modal-head">
+        <div class="modal-titles">
+          <h3 id="im-title">导入备份</h3>
+          <div id="im-meta" class="modal-meta"></div>
+        </div>
+        <button id="im-x" class="btn mini" aria-label="关闭导入">关闭</button>
+      </div>
+      <div class="modal-body">
+        <div id="im-summary" class="im-summary"></div>
+        <label class="field im-apply">
+          <span class="field-label">同时恢复备份里的设置</span>
+          <input type="checkbox" id="im-settings" class="switch">
+          <span class="field-hint">检查间隔、每天首次检查、通知、悬浮窗、分类等；订阅不受影响。</span>
+        </label>
+        <p class="fineprint">
+          合并：只补充备份里还没有的订阅，已有订阅的名称、分类、间隔、关键词会被备份覆盖，但时间线和未读状态保留。
+          覆盖：用备份替换全部订阅，快照会重新建立。
+        </p>
+      </div>
+      <div class="modal-foot">
+        <button id="im-cancel" class="btn ghost">取消</button>
+        <button id="im-merge" class="btn ghost">合并导入</button>
+        <button id="im-replace" class="btn primary">覆盖导入</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script src="options.js"></script>
+</body>
+</html>

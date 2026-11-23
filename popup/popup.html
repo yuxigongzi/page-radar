@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>页面更新雷达</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <img class="logo" src="../icons/icon48.png" alt="">
+      <div class="titles">
+        <h1>页面更新雷达</h1>
+        <p id="summary">正在读取订阅…</p>
+      </div>
+      <button id="open-options" class="icon-btn" title="全部订阅与设置" aria-label="全部订阅与设置">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3.2"></circle>
+          <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6h.09A1.7 1.7 0 0 0 10 3.05V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.09A1.7 1.7 0 0 0 20.95 10H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15Z"></path>
+        </svg>
+      </button>
+    </header>
+
+    <section class="card page-card">
+      <div class="page-head">
+        <div class="page-meta">
+          <div id="page-title" class="page-title">当前页面</div>
+          <div id="page-host" class="page-host"></div>
+        </div>
+        <span id="page-count" class="pill">0 个订阅</span>
+      </div>
+
+      <div id="page-subs" class="subs"></div>
+      <div id="page-empty" class="empty">
+        <div class="empty-art">◎</div>
+        <p>还没有订阅这个页面的板块</p>
+        <span>点击下方按钮，在页面上框选要盯住的区域</span>
+      </div>
+
+      <div class="actions">
+        <button id="pick" class="primary">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          框选本页板块
+        </button>
+        <button id="check-page" class="ghost" title="立即检查本页所有订阅">检查</button>
+      </div>
+      <div id="page-note" class="note"></div>
+    </section>
+
+    <section class="card settings">
+      <label class="row">
+        <span class="label">检查间隔</span>
+        <select id="interval">
+          <option value="1">每 1 小时</option>
+          <option value="3">每 3 小时</option>
+          <option value="6">每 6 小时</option>
+          <option value="12">每 12 小时</option>
+          <option value="24">每 24 小时</option>
+          <option value="48">每 2 天</option>
+          <option value="168">每 7 天</option>
+        </select>
+      </label>
+      <label class="row">
+        <span class="label">每天首次打开浏览器时检查</span>
+        <input id="startup" class="switch" type="checkbox">
+      </label>
+      <label class="row">
+        <span class="label">有更新时发系统通知</span>
+        <input id="notify" class="switch" type="checkbox">
+      </label>
+      <label class="row">
+        <span class="label">网页边缘悬浮窗</span>
+        <input id="panel" class="switch" type="checkbox">
+      </label>
+    </section>
+
+    <section class="card pv-card" id="pv-card" hidden>
+      <div class="pv-head">
+        <button id="pv-back" class="icon-btn" title="返回" aria-label="返回列表">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>
+        </button>
+        <div class="pv-titles">
+          <div id="pv-title" class="pv-title">预览</div>
+          <div id="pv-meta" class="pv-meta"></div>
+        </div>
+      </div>
+      <div id="pv-body" class="pv-body"></div>
+      <div class="pv-foot">
+        <button id="pv-open" class="ghost">打开网页</button>
+        <button id="pv-check" class="ghost">立即检查</button>
+      </div>
+    </section>
+
+    <footer class="bottom">
+      <button id="all-subs" class="link">全部订阅 <b id="total">0</b></button>
+      <span class="save-state" id="save-state"></span>
+    </footer>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
