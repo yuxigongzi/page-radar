@@ -4,6 +4,10 @@
 
 不用注册、不用账号、不上传任何数据——订阅和快照都只存在本机 `chrome.storage.local` 里。
 
+[![最新版本](https://img.shields.io/github/v/release/yuxigongzi/page-radar?label=%E6%9C%80%E6%96%B0%E7%89%88%E6%9C%AC&color=5ee0ff)](https://github.com/yuxigongzi/page-radar/releases/latest)
+
+**直接下载** → [最新版本 Release](https://github.com/yuxigongzi/page-radar/releases/latest)：在页面底部的 **Assets** 里点 `page-radar-x.y.z.zip`，解压后按下方「安装 · 方式一」加载即可。
+
 > 想自己改代码、跑测试、重新打包？看 [DEVELOPER.md](DEVELOPER.md)。
 
 ---
