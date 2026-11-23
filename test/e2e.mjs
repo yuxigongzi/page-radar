@@ -194,9 +194,11 @@ async function attachBrowser(hintId) {
   return { sw: session, extId: new URL(swTarget.url).host };
 }
 
-async function screenshot(sessionId, name) {
+async function screenshot(sessionId, name, clip) {
   try {
-    const r = await cdp.send('Page.captureScreenshot', { format: 'png' }, sessionId);
+    const params = { format: 'png' };
+    if (clip) params.clip = clip;
+    const r = await cdp.send('Page.captureScreenshot', params, sessionId);
     const file = path.join(OUT, name + '.png');
     await fs.writeFile(file, Buffer.from(r.data, 'base64'));
     return file;
@@ -1009,7 +1011,7 @@ try {
     return st.settings.panelOpacity === 0.3 ? 1 : null;
   });
   ok(true, '从设置页选文件导入成功，设置已恢复');
-  eq(await evaluate(cdp, control, 'document.getElementById("im-modal").hidden'), true, '导入后弹窗关闭');
+  eq(await waitFor('导入弹窗关闭', () => evaluate(cdp, control, 'document.getElementById("im-modal").hidden'), 6000), true, '导入后弹窗关闭');
   await fs.unlink(bkFile).catch(() => {});
 
   // 还原设置并清掉临时订阅，避免影响后续断言
@@ -1204,9 +1206,142 @@ try {
   await evaluate(cdp, control, 'document.getElementById("sel-toggle").click()');
   eq(await evaluate(cdp, control, 'document.getElementById("batch-bar").hidden'), true, '退出多选后批量操作栏隐藏');
 
-  /* ---------------------------------------------------------- 18. 勾选是否订阅 */
+  /* ---------------------------------------------------------- 18. 框选新建分类 + 备注 */
   log('');
-  log('[18] 勾选「是否订阅」，保存后生效');
+  log('[18] 框选卡片新建分类、悬浮窗备注');
+
+  const catPage = noise;
+  await cdp.send('Page.navigate', { url: noiseUrl }, catPage.session);
+  await waitFor('计数器页刷新（新建分类）', () => evaluate(cdp, catPage.session, 'document.readyState === "complete"'));
+  await startPicker(noiseUrl);
+  await pickSection(catPage.session, '#stats');
+  const newcatRow = await evaluate(cdp, catPage.session, `
+    (() => {
+      const sr = document.getElementById('pr-pick-host').shadowRoot;
+      const sel = sr.querySelector('#pr-cat');
+      const opt = Array.from(sel.options).find((o) => o.value === '__new__');
+      sel.value = '__new__';
+      sel.dispatchEvent(new Event('change'));
+      const row = sr.querySelector('#pr-newcat');
+      return { hasOpt: !!opt, visible: !!(row && !row.hidden), value: sel.value, selected: sel.selectedOptions[0] && sel.selectedOptions[0].text };
+    })()
+  `);
+  ok(newcatRow.hasOpt, '分类下拉里有「+ 新建分类…」');
+  eq(newcatRow.visible, true, '选中后展开新建分类输入行');
+  eq(newcatRow.value, '__new__', '下拉停在新分类这一项');
+  await screenshot(catPage.session, '14-picker-newcat');
+
+  await evaluate(cdp, catPage.session, `
+    (() => {
+      const sr = document.getElementById('pr-pick-host').shadowRoot;
+      sr.querySelector('#pr-newcat-name').value = '实测分类';
+      sr.querySelector('[data-pick="newcat-ok"]').click();
+      return 1;
+    })()
+  `);
+  const newCat = await waitFor('新分类写入设置', async () => {
+    const st = await storage();
+    return (st.settings.categories || []).find((c) => c.name === '实测分类') || null;
+  }, 8000);
+  ok(!!newCat.id, '框选卡片里新建的分类已保存（' + newCat.name + '）');
+  const catSel = await waitFor('新建分类后自动选中', async () => {
+    const r = await evaluate(cdp, catPage.session, `
+      (() => {
+        const sr = document.getElementById('pr-pick-host').shadowRoot;
+        return { value: sr.querySelector('#pr-cat').value, hidden: sr.querySelector('#pr-newcat').hidden };
+      })()
+    `);
+    return r.value === newCat.id ? r : null;
+  }, 6000);
+  eq(catSel.value, newCat.id, '新建完成后自动选中该分类');
+  eq(catSel.hidden, true, '新建完成后输入行收起');
+
+  await clickSubscribe(catPage.session);
+  const catSub = await waitFor('带新分类的订阅', async () => {
+    const st = await storage();
+    return st.subs.find((x) => x.url === noiseUrl && x.categoryId === newCat.id) || null;
+  }, 15000);
+  eq(catSub.categoryId, newCat.id, '框选订阅时带上了新建的分类');
+  await sendMsg({ type: 'update-sub', id: catSub.id, intervalHours: 168, categoryId: '' });
+
+  // 悬浮窗里给订阅加备注
+  await cdp.send('Page.navigate', { url: feedUrl }, feed.session);
+  await waitFor('面板重新挂载（备注）', async () => (await panelInfo(feed.session)).present, 12000);
+  await waitFor('面板有订阅行（备注）', async () => (await panelInfo(feed.session)).rows > 0, 12000);
+  const noteOpen = await evaluate(cdp, feed.session, `
+    (() => {
+      const sr = document.getElementById('pr-panel-host').shadowRoot;
+      const row = sr.querySelector('.row[data-id="' + ${JSON.stringify(feedSub.id)} + '"]') || sr.querySelector('.row');
+      if (!row) return { ok: false };
+      const btn = row.querySelector('[data-row-note]');
+      if (!btn) return { ok: false, why: '缺少备注按钮' };
+      btn.click();
+      const ed = row.querySelector('.noteedit');
+      const input = ed && ed.querySelector('input');
+      if (!input) return { ok: false, editor: !!ed };
+      input.value = '重点盯这个板块';
+      return { ok: true, buttons: ed.querySelectorAll('button').length };
+    })()
+  `);
+  ok(noteOpen.ok, '悬浮窗订阅行有备注按钮，点击后出现输入框');
+
+  await evaluate(cdp, feed.session, `
+    (() => {
+      const sr = document.getElementById('pr-panel-host').shadowRoot;
+      const row = sr.querySelector('.row[data-id="' + ${JSON.stringify(feedSub.id)} + '"]') || sr.querySelector('.row');
+      const ed = row.querySelector('.noteedit');
+      ed.querySelector('button.ok').click();
+      return 1;
+    })()
+  `);
+  const savedNote = await waitFor('备注已写入', async () => {
+    const st = await storage();
+    const s = st.subs.find((x) => x.id === feedSub.id) || st.subs.find((x) => x.note);
+    return s && s.note ? s : null;
+  }, 8000);
+  eq(savedNote.note, '重点盯这个板块', '备注保存到订阅上');
+  const noteShown = await evaluate(cdp, feed.session, `
+    (() => {
+      const sr = document.getElementById('pr-panel-host').shadowRoot;
+      const row = sr.querySelector('.row[data-id="' + ${JSON.stringify(feedSub.id)} + '"]') || sr.querySelector('.row');
+      const n = row && row.querySelector('.note');
+      return n ? n.textContent.trim() : '';
+    })()
+  `);
+  eq(noteShown, '重点盯这个板块', '悬浮窗里显示出这条备注');
+  await evaluate(cdp, feed.session, `
+    (() => {
+      const sr = document.getElementById('pr-panel-host').shadowRoot;
+      const pin = sr.querySelector('[data-act="pin"]');
+      if (pin) pin.click();
+      return 1;
+    })()
+  `);
+  await sleep(520);
+  const panelClip = await evaluate(cdp, feed.session, `
+    (() => {
+      const h = document.getElementById('pr-panel-host');
+      const r = h.getBoundingClientRect();
+      return { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height), scale: 2 };
+    })()
+  `);
+  await screenshot(feed.session, '15-panel-note', panelClip);
+  await evaluate(cdp, feed.session, `
+    (() => {
+      const sr = document.getElementById('pr-panel-host').shadowRoot;
+      const pin = sr.querySelector('[data-act="pin"]');
+      if (pin) pin.click();
+      return 1;
+    })()
+  `);
+
+  // 还原：删掉临时分类
+  const catsAfter = (await storage()).settings.categories || [];
+  await sendMsg({ type: 'save-settings', patch: { categories: catsAfter.filter((c) => c.id !== newCat.id) } });
+
+  /* ---------------------------------------------------------- 19. 勾选是否订阅 */
+  log('');
+  log('[19] 勾选「是否订阅」，保存后生效');
   const pauseId = feedSub.id;
   await cdp.send('Page.navigate', { url: optUrl }, control);
   await waitFor('设置页刷新（勾选）', () => evaluate(cdp, control, 'document.readyState === "complete"'));
@@ -1332,7 +1467,7 @@ try {
   ok(resumeDelay <= 60000, '恢复后马上安排了检查（' + Math.round(resumeDelay / 1000) + ' 秒后）');
 
   /* ---------------------------------------------------------- 14. 每天首次启动 */
-  log('\n[18] 重启浏览器，验证「每天首次启动」自动检查');
+  log('\n[20] 重启浏览器，验证「每天首次启动」自动检查');
   const restartAt = Date.now();
   // Pretend the last start-up check was days ago.
   await swEval(`
@@ -1392,7 +1527,7 @@ try {
   ok(startup.subs.every((s) => !s.err || !s.err.length), '启动检查没有报错');
   eq((await swEval2('const a = await chrome.alarms.getAll(); return a.map((x) => x.name).join(",");')), 'pr:tick', '重启后重新安排了检查闹钟');
 
-  log('\n[19] 清理');
+  log('\n[21] 清理');
 } catch (e) {
   failures.push(e && e.stack || String(e));
   log('\n致命错误:', e && e.message || e);

@@ -185,6 +185,7 @@
   }
 
   function onPanelClick(e) {
+    if (e.target.closest && e.target.closest('.noteedit')) return;
     var pvAct = e.target.closest ? e.target.closest('[data-pv]') : null;
     if (pvAct) {
       e.stopPropagation();
@@ -232,6 +233,12 @@
       e.stopPropagation();
       var id = refreshBtn.getAttribute('data-row-refresh');
       refreshOne(id);
+      return;
+    }
+    var noteBtn = e.target.closest ? e.target.closest('[data-row-note]') : null;
+    if (noteBtn) {
+      e.stopPropagation();
+      startNoteEdit(e.target.closest('.row'), noteBtn.getAttribute('data-row-note'));
       return;
     }
     var row = e.target.closest ? e.target.closest('.row') : null;
@@ -338,11 +345,17 @@
       else meta.appendChild(el('span', null, bits[i]));
     }
     main.appendChild(meta);
+    if (sub.note) main.appendChild(el('div', 'note', sub.note));
 
     var btn = el('button', 'rowbtn' + (checking ? ' spin' : ''));
     btn.setAttribute('data-row-refresh', sub.id);
     btn.title = '立即检查';
     btn.innerHTML = UI.ICONS.refresh;
+
+    var noteBtn = el('button', 'rowbtn');
+    noteBtn.setAttribute('data-row-note', sub.id);
+    noteBtn.title = sub.note ? '修改备注' : '添加备注';
+    noteBtn.innerHTML = UI.ICONS.note;
 
     var pvBtn = el('button', 'rowbtn');
     pvBtn.setAttribute('data-row-preview', sub.id);
@@ -351,9 +364,72 @@
 
     row.appendChild(dot);
     row.appendChild(main);
+    row.appendChild(noteBtn);
     row.appendChild(pvBtn);
     row.appendChild(btn);
     return row;
+  }
+
+  /** 悬浮窗里给单个订阅加/改备注，回车或「保存」写入后台。 */
+  function startNoteEdit(row, id) {
+    if (!row) return;
+    var sub = findSub(id);
+    if (!sub) return;
+    var main = row.querySelector('.rowmain');
+    var open = row.querySelector('.noteedit');
+    if (open) {
+      open.querySelector('input').focus();
+      return;
+    }
+    var editor = el('div', 'noteedit');
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.maxLength = 120;
+    input.value = sub.note || '';
+    input.placeholder = '备注，例如「等面试通知」';
+    var okBtn = el('button', 'nbtn ok', '保存');
+    var cancelBtn = el('button', 'nbtn', '取消');
+    editor.appendChild(input);
+    editor.appendChild(okBtn);
+    editor.appendChild(cancelBtn);
+    main.appendChild(editor);
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+
+    var done = false;
+    function finish(save) {
+      if (done) return;
+      done = true;
+      var val = input.value.trim().slice(0, 120);
+      editor.remove();
+      if (save && val !== (sub.note || '')) {
+        send({ type: 'update-sub', id: id, note: val }).then(function (res) {
+          if (!res || !res.ok) {
+            toast('备注保存失败');
+            return;
+          }
+          sub.note = val;
+          var noteEl = row.querySelector('.note');
+          if (val) {
+            if (!noteEl) {
+              noteEl = el('div', 'note');
+              main.appendChild(noteEl);
+            }
+            noteEl.textContent = val;
+          } else if (noteEl) {
+            noteEl.remove();
+          }
+          toast(val ? '备注已保存' : '备注已清空');
+        });
+      }
+    }
+    okBtn.addEventListener('click', function (ev) { ev.stopPropagation(); finish(true); });
+    cancelBtn.addEventListener('click', function (ev) { ev.stopPropagation(); finish(false); });
+    input.addEventListener('keydown', function (ev) {
+      ev.stopPropagation();
+      if (ev.key === 'Enter') { ev.preventDefault(); finish(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
+    });
   }
 
   function catOf(sub) {
@@ -657,6 +733,9 @@
       name: shadow.querySelector('#pr-name'),
       interval: shadow.querySelector('#pr-interval'),
       cat: shadow.querySelector('#pr-cat'),
+      newcat: shadow.querySelector('#pr-newcat'),
+      newcatName: shadow.querySelector('#pr-newcat-name'),
+      catPrev: '',
       err: shadow.querySelector('#pr-err'),
       sub: shadow.querySelector('#pr-sub'),
       prev: shadow.querySelector('#pr-prev'),
@@ -676,6 +755,66 @@
 
     hint('移动到要订阅的板块上，点击选中');
     fillCatSelect(state.settings ? state.settings.categories : []);
+    picker.catPrev = picker.cat.value;
+    picker.cat.addEventListener('change', onCatPick);
+    picker.newcatName.addEventListener('keydown', onNewCatKey);
+  }
+
+  function onCatPick() {
+    if (!picker) return;
+    if (picker.cat.value === '__new__') {
+      picker.newcat.hidden = false;
+      picker.newcatName.value = '';
+      picker.newcatName.focus();
+      return;
+    }
+    picker.catPrev = picker.cat.value;
+    picker.newcat.hidden = true;
+    picker.newcatName.value = '';
+  }
+
+  function cancelNewCat() {
+    if (!picker) return;
+    picker.newcat.hidden = true;
+    picker.newcatName.value = '';
+    picker.cat.value = picker.catPrev || '';
+    picker.cat.focus();
+  }
+
+  function onNewCatKey(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      createCategoryFromPicker();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelNewCat();
+    }
+  }
+
+  /** 在框选卡片里直接新建分类，成功后自动选中它。 */
+  async function createCategoryFromPicker() {
+    if (!picker) return;
+    var name = (picker.newcatName.value || '').trim();
+    if (!name) {
+      picker.newcatName.focus();
+      return;
+    }
+    var res = await send({ type: 'add-category', name: name });
+    if (!res || !res.ok) {
+      showPickError((res && res.error) || '新建分类失败');
+      return;
+    }
+    picker.err.classList.remove('show');
+    state.settings = res.settings;
+    fillCatSelect(res.settings.categories);
+    picker.cat.value = res.category.id;
+    picker.catPrev = res.category.id;
+    picker.newcat.hidden = true;
+    picker.newcatName.value = '';
+    picker.cat.focus();
+    toast('已新建分类「' + res.category.name + '」');
   }
 
   function fillCatSelect(cats) {
@@ -684,6 +823,7 @@
     sel.replaceChildren();
     sel.appendChild(new Option('未分类', ''));
     (cats || []).forEach(function (c) { sel.appendChild(new Option(c.name, c.id)); });
+    sel.appendChild(new Option('+ 新建分类…', '__new__'));
     sel.value = defaultCategory(cats);
   }
 
@@ -777,11 +917,16 @@
     if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
+      if (picker.newcat && !picker.newcat.hidden) {
+        cancelNewCat();
+        return;
+      }
       exitPicker();
       return;
     }
     if (picker.mode !== 'hover') return;
-    var tag = (e.target && e.target.tagName || '').toUpperCase();
+    var active = (picker.shadow && picker.shadow.activeElement) || e.target;
+    var tag = (active && active.tagName || '').toUpperCase();
     if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
     if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
       e.preventDefault();
@@ -896,6 +1041,10 @@
       selectElement(next);
     } else if (act === 'subscribe') {
       doSubscribe();
+    } else if (act === 'newcat-ok') {
+      createCategoryFromPicker();
+    } else if (act === 'newcat-cancel') {
+      cancelNewCat();
     }
   }
 
@@ -923,7 +1072,7 @@
       tag: target.tagName,
       anchorText: X.normText(target.textContent || '').slice(0, 120),
       intervalHours: picker.interval.value ? Number(picker.interval.value) : 0,
-      categoryId: picker.cat ? picker.cat.value : '',
+      categoryId: picker.cat && picker.cat.value !== '__new__' ? picker.cat.value : '',
       snapshot: snap
     });
 

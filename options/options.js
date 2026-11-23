@@ -403,6 +403,12 @@
 
     info.appendChild(input);
     info.appendChild(meta);
+    if (sub.note) {
+      var noteLine = el('div', 'sub-note');
+      noteLine.textContent = sub.note;
+      noteLine.title = '备注：' + sub.note;
+      info.appendChild(noteLine);
+    }
 
     var actions = el('div', 'sub-actions');
 

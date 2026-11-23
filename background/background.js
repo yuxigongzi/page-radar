@@ -735,6 +735,7 @@ async function handleCreateSub(msg) {
     sub.enabled = existing ? existing.enabled !== false : true;
     sub.keywords = sanitizeKeywords(msg.keywords);
     sub.keywordMode = sanitizeKeywordMode(msg.keywordMode);
+    sub.note = existing ? (existing.note || '') : String(msg.note || '').trim().slice(0, 120);
     sub.hits = [];
     sub.hitAt = 0;
     sub.nextCheckAt = now + MIN_ALARM_DELAY;
@@ -795,6 +796,8 @@ async function handleUpdateSub(msg) {
       sub.nextCheckAt = Date.now() + intervalMs(sub, await getSettings());
     }
     if (msg.url && /^https?:/i.test(msg.url)) sub.url = msg.url;
+    if (msg.note != null) sub.note = String(msg.note).trim().slice(0, 120);
+    else sub.note = sub.note || '';
     if (msg.categoryId != null) {
       sub.categoryId = validCategoryId(await getSettings(), msg.categoryId);
     } else {
@@ -887,6 +890,26 @@ async function handleSaveSettings(patch) {
   return { ok: true, settings: next };
 }
 
+/** 框选卡片里直接新建分类：名称去重，颜色按顺序取调色板。 */
+async function handleAddCategory(msg) {
+  var name = String(msg.name || '').trim().slice(0, 20);
+  if (!name) return { ok: false, error: '分类名称不能为空' };
+  var settings = await getSettings();
+  var cats = (settings.categories || []).slice();
+  if (cats.length >= 20) return { ok: false, error: '分类最多 20 个' };
+  var lower = name.toLowerCase();
+  for (var i = 0; i < cats.length; i++) {
+    if (String(cats[i].name || '').toLowerCase() === lower) return { ok: false, error: '已经有同名分类了' };
+  }
+  var category = {
+    id: 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    name: name,
+    color: CATEGORY_COLORS[cats.length % CATEGORY_COLORS.length]
+  };
+  var saved = await handleSaveSettings({ categories: cats.concat([category]) });
+  return { ok: true, category: category, settings: saved.settings };
+}
+
 function normalizeImported(raw) {
   if (!raw || !Array.isArray(raw.subs)) throw new Error('数据格式不正确');
   var out = [];
@@ -906,6 +929,7 @@ function normalizeImported(raw) {
       enabled: s.enabled !== false,
       keywords: sanitizeKeywords(s.keywords),
       keywordMode: sanitizeKeywordMode(s.keywordMode),
+      note: typeof s.note === 'string' ? s.note.slice(0, 120) : '',
       hits: [],
       createdAt: s.createdAt || Date.now(),
       checkedAt: 0,
@@ -960,6 +984,7 @@ async function handleMessage(msg, sender, sendResponse) {
             enabled: pvSub.enabled !== false,
             keywords: sanitizeKeywords(pvSub.keywords),
             keywordMode: sanitizeKeywordMode(pvSub.keywordMode),
+            note: pvSub.note || '',
             hits: Array.isArray(pvSub.hits) ? pvSub.hits : []
           },
           category: pvCat,
@@ -985,6 +1010,9 @@ async function handleMessage(msg, sender, sendResponse) {
         break;
       case 'save-settings':
         res = await handleSaveSettings(msg.patch || {});
+        break;
+      case 'add-category':
+        res = await handleAddCategory(msg);
         break;
       case 'mark-seen': {
         var ids = Array.isArray(msg.ids) ? msg.ids : [];
@@ -1126,6 +1154,7 @@ async function handleMessage(msg, sender, sendResponse) {
             t.intervalHours = s.intervalHours;
             t.keywords = s.keywords;
             t.keywordMode = s.keywordMode;
+            if (s.note) t.note = s.note;
             t.enabled = s.enabled;
             if (prevKw !== s.keywords.join('\u0001')) {
               t.hits = [];

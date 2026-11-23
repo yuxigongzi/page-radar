@@ -141,6 +141,11 @@
         : (sub.checkedAt ? timeAgo(sub.checkedAt) + '已检查' : '等待首次检查'))) +
       ' · ' + intervalLabel(sub.intervalHours || state.settings.intervalHours);
     main.appendChild(meta);
+    if (sub.note) {
+      var noteEl = el('div', 'sub-note', sub.note);
+      noteEl.title = '备注：' + sub.note;
+      main.appendChild(noteEl);
+    }
     row.appendChild(dot);
     row.appendChild(main);
     if (cat) {

@@ -46,6 +46,13 @@
     '.meta{margin-top:4px;font-size:10.5px;color:#8590a5;display:flex;align-items:center;gap:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
     '.meta .sep{color:#3b4354}',
     '.meta.err{color:#e88383}',
+    '.note{margin-top:4px;font-size:10.5px;color:#9fb0c6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+    '.note::before{content:"\\270E";margin-right:4px;color:#5f7590;font-size:10px}',
+    '.noteedit{display:flex;align-items:center;gap:5px;margin-top:5px}',
+    '.noteedit input{flex:1;min-width:0;height:25px;padding:0 7px;border-radius:7px;border:1px solid rgba(94,224,255,.35);background:rgba(255,255,255,.05);color:#e9eef8;font-size:11px;font-family:inherit;outline:none}',
+    '.noteedit .nbtn{flex:none;height:25px;padding:0 8px;border-radius:7px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#c7cfdd;font-size:10.5px;cursor:pointer;font-family:inherit}',
+    '.noteedit .nbtn:hover{background:rgba(255,255,255,.09)}',
+    '.noteedit .nbtn.ok{border:0;background:linear-gradient(135deg,#5ee0ff,#6f8dff);color:#06121b;font-weight:700}',
     '.rowbtn{flex:none;width:24px;height:24px;border-radius:8px;border:0;background:transparent;color:#67718a;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:.15s;padding:0}',
     '.row:hover .rowbtn{opacity:1}',
     '.rowbtn:hover{background:rgba(255,255,255,.08);color:#bfe9ff}',
@@ -108,6 +115,12 @@
     '.pv .s{display:block;color:#7f8ba0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
     '.field{display:flex;align-items:center;gap:10px;margin-top:10px}',
     '.field>span{width:64px;flex:none;font-size:11.5px;color:#8d99ad}',
+    '.newcat{display:flex;align-items:center;gap:6px;margin-top:8px;padding-left:74px}',
+    '.newcat[hidden]{display:none}',
+    '.newcat input{flex:1;min-width:0;height:30px;font-size:12px}',
+    '.newcat .nbtn{flex:none;height:30px;padding:0 10px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#c7cfdd;font-size:11.5px;cursor:pointer;font-family:inherit}',
+    '.newcat .nbtn:hover{background:rgba(255,255,255,.09)}',
+    '.newcat .nbtn.ok{border:0;background:linear-gradient(135deg,#5ee0ff,#6f8dff);color:#06121b;font-weight:700}',
     'input,select{flex:1;height:34px;border-radius:9px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:#e9eef8;padding:0 10px;font-size:12.5px;outline:none;font-family:inherit;box-sizing:border-box}',
     'input:focus,select:focus{border-color:rgba(94,224,255,.55);box-shadow:0 0 0 3px rgba(94,224,255,.1)}',
     'select option{background:#121620;color:#e9eef8}',
@@ -149,7 +162,8 @@
     plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
     clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
     eye: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.2 12S5.6 5.8 12 5.8 21.8 12 21.8 12 18.4 18.2 12 18.2 2.2 12 2.2 12Z"/><circle cx="12" cy="12" r="2.9"/></svg>',
-    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>'
+    back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg>',
+    note: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 19.5h4l10-10a2.1 2.1 0 0 0-3-3l-10 10v3Z"/><path d="M14 7.5l3 3"/></svg>'
   };
 
   var PANEL_TPL = [
@@ -191,6 +205,7 @@
       '<option value="168">每 7 天</option>' +
     '</select></div>',
     '<div class="field"><span>分类</span><select id="pr-cat"></select></div>',
+    '<div class="newcat" id="pr-newcat" hidden><input id="pr-newcat-name" maxlength="20" placeholder="新分类名称"><button class="nbtn ok" data-pick="newcat-ok">添加</button><button class="nbtn" data-pick="newcat-cancel">取消</button></div>',
     '<div class="adjust"><button data-pick="up">↑ 扩大选区</button><button data-pick="down">↓ 缩小选区</button></div>',
     '<div class="err" id="pr-err"></div>',
     '<div class="cfoot"><button class="cbtn" data-pick="reselect">重选</button><button class="cbtn" data-pick="cancel">取消</button><button class="cbtn primary" data-pick="subscribe" id="pr-sub">订阅</button></div>',

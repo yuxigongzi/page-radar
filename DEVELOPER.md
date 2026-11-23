@@ -82,6 +82,7 @@ settings = {
 subs = [{                   // 数组，按 createdAt 升序
   id, url, name, pageTitle, selector, candidates: [], tag, anchorText,
   categoryId, keywords: [], keywordMode: 'any'|'all', hits: [],
+  note,                     // 备注，≤120 字，只用于展示
   intervalHours,            // 0 = 跟随全局
   enabled,                  // false = 暂停
   createdAt, checkedAt, nextCheckAt, lastChangeAt,
@@ -112,10 +113,11 @@ meta = { lastStartupDay: 'YYYY-MM-DD', lastStartupCheckAt, lastTickAt }
 | --- | --- | --- |
 | `get-state` | — | `{ settings, subs, now }` |
 | `get-preview` | `{ id, limit? }` | `{ sub, category, preview }`，订阅不存在时 `{ ok:false, error }` |
-| `create-sub` | `{ url, name, pageTitle, selector, candidates, tag, anchorText, categoryId, keywords, keywordMode, intervalHours, snapshot }` | `{ id, created, sub, settings }` |
+| `create-sub` | `{ url, name, pageTitle, selector, candidates, tag, anchorText, categoryId, keywords, keywordMode, note, intervalHours, snapshot }` | `{ id, created, sub, settings }` |
 | `remove-sub` | `{ id }` | `{ removed }` |
-| `update-sub` | `{ id, name?, url?, enabled?, intervalHours?, categoryId?, keywords?, keywordMode? }` | `{ sub }` |
+| `update-sub` | `{ id, name?, url?, enabled?, intervalHours?, categoryId?, keywords?, keywordMode?, note? }` | `{ sub }` |
 | `save-settings` | settings 的任意子集 | `{ settings }` |
+| `add-category` | `{ name }` | `{ category, settings }`；名称空 / 重名 / 超过 20 个时 `{ ok:false, error }` |
 | `mark-seen` | `{ ids: [] }` | `{ changed }` |
 | `site-panel` | `{ host, hidden }` | `{ panelHiddenHosts }` |
 | `check-now` | `{ id }` | `runCheck` 的结果（暂停时 `{ ok:false, error:'这个订阅已暂停...' }`） |
@@ -217,6 +219,8 @@ var notify = keywordMode ? hitNow : changed;   // 关键词模式下普通更新
 - 样式表由 `CSSStyleSheet.replaceSync` 构造一次并缓存（`__PR_UI.PANEL_CSS` 等是字符串数组）。
 - 悬浮窗状态机：`data-open`（展开/收起，收起时 `translateX(±50%)` 露出半个）、`data-side`、`data-checking`（顶部进度条）、`data-preview`（抽屉打开时把面板撑高到 `min(70vh, 560px)`）。`syncOpen()` 的展开条件是 `hover || pinned || pvOpen`。
 - 页面侧只做展示；所有状态改动都发回 background，改完靠 `storage.onChanged` 重渲染。
+- 框选卡片里的分类下拉末项是 `+ 新建分类…`（value `__new__`），选中后展开 `#pr-newcat` 输入行，提交时发 `add-category` 而不是自己拼 `save-settings`，避免和设置页并发写覆盖；创建成功后用返回的 `settings` 重填下拉并选中新分类。
+- 悬浮窗每行有铅笔按钮（`data-row-note`）：就地插入 `.noteedit` 输入框，回车/保存发 `update-sub { note }`，成功后只更新该行的 `.note` 节点，不整块重渲染，避免闪烁。
 
 ---
 
@@ -256,7 +260,7 @@ node tools/check_ids.mjs     # JS 里的 $('#id') 与 HTML 对账
 - 同一天内的「启动检查」需要先把 `meta.lastStartupDay` 改成过去的日期，否则会被日锁挡住。
 - 关键词断言要用全新词：fixture 的 `state.kw` 会跨阶段累积；`matchKeywords` 的 `all` 模式在缺词时返回 `[]`。
 
-测试阶段（`e2e.mjs` 里从 `[1]` 到 `[20]`）：默认设置 → 框选 → 订阅与基线 → 悬浮窗收起/展开 → 手动检查 → 更新与通知 → 噪声 → SPA → CSP → 弹窗/设置页渲染 → 改间隔重排 → 预览与分类 → 标为已读 → 刷新与闪烁 → 关键词 → 备份导入导出 → 筛选/多选/批量 → 勾选暂停 → 重启后当天首次检查 → 清理。截图写到 `test/out/`。
+测试阶段（`e2e.mjs` 里从 `[1]` 到 `[21]`）：默认设置 → 框选 → 订阅与基线 → 悬浮窗收起/展开 → 手动检查 → 更新与通知 → 噪声 → SPA → CSP → 弹窗/设置页渲染 → 改间隔重排 → 预览与分类 → 标为已读 → 刷新与闪烁 → 关键词 → 备份导入导出 → 筛选/多选/批量 → 框选卡片新建分类与悬浮窗备注 → 勾选暂停 → 重启后当天首次检查 → 清理。截图写到 `test/out/`。
 
 ---
 

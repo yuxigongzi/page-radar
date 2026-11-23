@@ -179,6 +179,17 @@ body {
 .sub-meta .sep { color: #3d4658; }
 .sub-meta .err { color: #e88383; }
 
+.sub-note {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #94a6bf;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 520px;
+}
+.sub-note::before { content: "✎ "; color: #5f7590; }
+
 .sub-actions {
   display: flex;
   align-items: center;
